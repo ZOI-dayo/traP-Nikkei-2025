@@ -153,7 +153,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
-            "n_commit_members", "n_issues_log"]
+            "n_commit_members", "n_issues"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
