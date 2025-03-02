@@ -35,7 +35,7 @@ for row in commits.itertuples():
         # print(f"repo_name = {repo_name}")
         repo_commit_cnt[repo_name] = repo_commit_cnt.get(repo_name, 0) + 1
 
-repo_commit_cnt_df = pd.DataFrame({"repo_url" : repo_commit_cnt.keys(), "commit_cnt": repo_commit_cnt.values()})
+repo_commit_cnt_df = pd.DataFrame({"repo_url" : repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
 # print(repo_commit_cnt_df)
 
 print("コミット情報を結合します...")
@@ -48,7 +48,7 @@ test_merged = test_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
 
 print("コミット情報を読み取れました")
 
-print(train_merged["commit_cnt"])
+print(train_merged["n_commits"])
 
 
 # 要素数を取得する関数
@@ -79,6 +79,10 @@ plt.show()
 train_merged["star_file_ratio"] = train_merged["n_files"] / train_merged["n_stars"]
 test_merged["star_file_ratio"] = test_merged["n_files"] / test_merged["n_stars"]
 
+# "file_par_commit" に n_files / n_commits を代入 (commitあたりの平均ファイル数)
+train_merged["file_par_commit"] = train_merged["n_files"] / train_merged["n_commits"]
+test_merged["file_par_commit"] = test_merged["n_files"] / test_merged["n_commits"]
+
 import seaborn as sns
 
 def show_dist(df, key):
@@ -94,13 +98,13 @@ show_dist(train_merged, "n_stars")
 
 show_dist(train_merged, "star_file_ratio")
 
-show_dist(train_merged, "commit_cnt")
+show_dist(train_merged, "n_commits")
 
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
-use_cols = ["n_stars", "n_files", "star_file_ratio", "commit_cnt"]
+use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
@@ -120,11 +124,11 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
     params = {
         # 二値分類として解く
         'objective': 'binary',
-        # 評価指標として binary_logloss と binary_error を使う
-        'metric': ['binary_logloss', 'binary_error'],
+        # 評価指標として auc と accuracy を使う
+        'metric': ['auc', 'accuracy'],
     }
 
-    # 学習. binary_logloss が 100ステップ以上改善しないなら打ち切るように設定する
+    # 学習. auc が 100ステップ以上改善しないなら打ち切るように設定する
     model = lgb.train(params, lgb_train, valid_sets=[lgb_valid],
                       callbacks=[lgb.early_stopping(100, first_metric_only=True)])
 
