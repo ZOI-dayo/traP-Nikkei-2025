@@ -17,6 +17,39 @@ repo = pd.read_csv(DATA_DIR + 'repo.csv')
 train_merged = train.merge(repo, on='repo_id', how='left')
 test_merged = test.merge(repo, on='repo_id', how='left')
 
+# repo urlを追加
+train_merged["repo_url"] = train_merged["owner"] + "/" + train_merged["repo"]
+test_merged["repo_url"] = test_merged["owner"] + "/" + test_merged["repo"]
+
+# コミット情報を読み取り
+print("コミット情報を読み取っています...")
+commits = pd.read_csv(DATA_DIR + 'commits_sampled_10.csv')
+
+print("コミット情報を集計します...")
+
+repo_commit_cnt = {}
+
+for row in commits.itertuples():
+    # print(f"row.repo_names = {row.repo_names}")
+    for repo_name in eval(row.repo_names):
+        # print(f"repo_name = {repo_name}")
+        repo_commit_cnt[repo_name] = repo_commit_cnt.get(repo_name, 0) + 1
+
+repo_commit_cnt_df = pd.DataFrame({"repo_url" : repo_commit_cnt.keys(), "commit_cnt": repo_commit_cnt.values()})
+# print(repo_commit_cnt_df)
+
+print("コミット情報を結合します...")
+
+print(repo_commit_cnt_df)
+print(train_merged["repo_url"])
+
+train_merged = train_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
+test_merged = test_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
+
+print("コミット情報を読み取れました")
+
+print(train_merged["commit_cnt"])
+
 
 # 要素数を取得する関数
 def list_len(s: str):
@@ -46,6 +79,7 @@ plt.show()
 train_merged["star_file_ratio"] = train_merged["n_files"] / train_merged["n_stars"]
 test_merged["star_file_ratio"] = test_merged["n_files"] / test_merged["n_stars"]
 
+import seaborn as sns
 
 def show_dist(df, key):
     sns.displot(df[key], kde=False, rug=False, log_scale=10).set(title=f"{key} log : all")
@@ -60,11 +94,13 @@ show_dist(train_merged, "n_stars")
 
 show_dist(train_merged, "star_file_ratio")
 
+show_dist(train_merged, "commit_cnt")
+
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
-use_cols = ["n_stars", "n_files", "star_file_ratio"]
+use_cols = ["n_stars", "n_files", "star_file_ratio", "commit_cnt"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
