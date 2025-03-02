@@ -66,6 +66,25 @@ test_merged = test_merged.merge(repo_commit_members_df, on='repo_url', how='left
 
 print("コミット情報を読み取れました")
 
+print("issue情報を読み取っています...")
+issues = pd.read_csv(DATA_DIR + 'issues.csv')
+
+issue_count_map = {}
+issue_open_count_map = {}
+for row in issues.itertuples():
+    issue_count_map[row.repo_id] = issue_count_map.get(row.repo_id, 0) + 1
+    if row.state == 'open':
+        issue_open_count_map[row.repo_id] = issue_open_count_map.get(row.repo_id, 0) + 1
+issue_count_df = pd.DataFrame({"repo_id": issue_count_map.keys(), "n_issues": issue_count_map.values()})
+issue_open_count_df = pd.DataFrame(
+    {"repo_id": issue_open_count_map.keys(), "n_open_issues": issue_open_count_map.values()})
+
+train_merged = train_merged.merge(issue_count_df, on='repo_id', how='left')
+test_merged = test_merged.merge(issue_count_df, on='repo_id', how='left')
+
+train_merged = train_merged.merge(issue_open_count_df, on='repo_id', how='left')
+test_merged = test_merged.merge(issue_open_count_df, on='repo_id', how='left')
+
 
 # 要素数を取得する関数
 def list_len(s: str):
@@ -99,6 +118,12 @@ test_merged["star_file_ratio"] = test_merged["n_files"] / test_merged["n_stars"]
 train_merged["file_par_commit"] = train_merged["n_files"] / train_merged["n_commits"]
 test_merged["file_par_commit"] = test_merged["n_files"] / test_merged["n_commits"]
 
+import math
+
+# n_issues はlogを取ったほうが扱いやすい値なので操作
+train_merged["n_issues_log"] = train_merged["n_issues"].apply(math.log)
+test_merged["n_issues_log"] = test_merged["n_issues"].apply(math.log)
+
 import seaborn as sns
 
 
@@ -121,14 +146,14 @@ def show_dist(df, key, log):
 
 # show_dist(train_merged, "file_par_commit")
 
-show_dist(train_merged, "n_commit_members", True)
+show_dist(train_merged, "n_issues", True)
 
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
-            "n_commit_members"]
+            "n_commit_members", "n_issues_log"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
