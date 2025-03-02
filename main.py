@@ -17,9 +17,11 @@ repo = pd.read_csv(DATA_DIR + 'repo.csv')
 train_merged = train.merge(repo, on='repo_id', how='left')
 test_merged = test.merge(repo, on='repo_id', how='left')
 
+
 # 要素数を取得する関数
 def list_len(s: str):
     return s.count(',')
+
 
 # 各データの "n_stars" に "stars" の要素数をいれる
 train_merged["n_stars"] = train_merged["stars"].apply(list_len)
@@ -40,9 +42,23 @@ plt.hist(test_merged['n_files'], bins=50, alpha=0.5, label='test', log=True)
 plt.legend()
 plt.show()
 
-# "star_file_ratio" に n_files / n_stars を代入 (スターが多いほど少なく、ファイルが多いほど大きくなる)
+# "star_file_ratio" に n_files / n_stars を代入 (スターが多いほど小さく、ファイルが多いほど大きくなる)
 train_merged["star_file_ratio"] = train_merged["n_files"] / train_merged["n_stars"]
 test_merged["star_file_ratio"] = test_merged["n_files"] / test_merged["n_stars"]
+
+
+def show_dist(df, key):
+    sns.displot(df[key], kde=False, rug=False, log_scale=10).set(title=f"{key} log : all")
+    sns.displot(df[df["active"] == True][key], kde=False, rug=False, log_scale=10).set(title=f"{key} log : true")
+    sns.displot(df[df["active"] == False][key], kde=False, rug=False, log_scale=10).set(title=f"{key} log : false")
+
+
+# fileの個数分布を表示
+show_dist(train_merged, "n_files")
+# starの個数分布を表示
+show_dist(train_merged, "n_stars")
+
+show_dist(train_merged, "star_file_ratio")
 
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
@@ -58,6 +74,7 @@ for train_index, valid_index in kf.split(train_merged):
 
 import lightgbm as lgb
 
+
 # 各分割をもらって、lightgbm のモデルを訓練して訓練した後のモデルを返す関数
 def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame, valid_y: pd.Series) -> lgb.Booster:
     # データセットを作成
@@ -72,9 +89,11 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
     }
 
     # 学習. auc が 100ステップ以上改善しないなら打ち切るように設定する
-    model = lgb.train(params, lgb_train, valid_sets=[lgb_valid], callbacks=[lgb.early_stopping(100, first_metric_only=True)])
+    model = lgb.train(params, lgb_train, valid_sets=[lgb_valid],
+                      callbacks=[lgb.early_stopping(100, first_metric_only=True)])
 
     return model
+
 
 # 各分割で学習した結果をいれた
 models = []
@@ -116,7 +135,6 @@ print("score: ", score)
 # ROC 曲線のプロット
 fpr, tpr, thresholds = roc_curve(train_merged["active"], oof_pred)
 
-
 plt.figure(figsize=(8, 6))
 plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {score}')
 plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # ランダムな分類器の基準線
@@ -149,6 +167,7 @@ def plot_importance(models: list):
     plt.title('feature importance')
     plt.grid()
     plt.show()
+
 
 # 各データをどれだけ重視したか見る
 plot_importance(models)
