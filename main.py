@@ -31,6 +31,7 @@ from datetime import datetime as dt
 
 repo_commit_cnt = {}
 repo_latest_commit_date = {}
+repo_commit_members = {}
 
 for row in commits.itertuples():
     # print(f"row.repo_names = {row.repo_names}")
@@ -40,10 +41,16 @@ for row in commits.itertuples():
         # print(f"repo_name = {repo_name}")
         repo_commit_cnt[repo_name] = repo_commit_cnt.get(repo_name, 0) + 1
         repo_latest_commit_date[repo_name] = max(repo_latest_commit_date.get(repo_name, 0), date)
+        if not repo_name in repo_commit_members:
+            repo_commit_members[repo_name] = {}
+        repo_commit_members[repo_name][row.author_name] = repo_commit_members[repo_name].get(row.author_name, 0) + 1
 
-
-repo_commit_cnt_df = pd.DataFrame({"repo_url" : repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
-repo_latest_commit_date_df = pd.DataFrame({"repo_url" : repo_latest_commit_date.keys(), "last_commit_date": repo_latest_commit_date.values()})
+repo_commit_cnt_df = pd.DataFrame({"repo_url": repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
+repo_latest_commit_date_df = pd.DataFrame(
+    {"repo_url": repo_latest_commit_date.keys(), "last_commit_date": repo_latest_commit_date.values()})
+repo_commit_members_df = pd.DataFrame(
+    {"repo_url": repo_commit_members.keys(), "n_commit_members": [len(e) for e in repo_commit_members.values()]}
+)
 # print(repo_commit_cnt_df)
 
 print("コミット情報を結合します...")
@@ -54,7 +61,11 @@ test_merged = test_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
 train_merged = train_merged.merge(repo_latest_commit_date_df, on='repo_url', how='left')
 test_merged = test_merged.merge(repo_latest_commit_date_df, on='repo_url', how='left')
 
+train_merged = train_merged.merge(repo_commit_members_df, on='repo_url', how='left')
+test_merged = test_merged.merge(repo_commit_members_df, on='repo_url', how='left')
+
 print("コミット情報を読み取れました")
+
 
 # 要素数を取得する関数
 def list_len(s: str):
@@ -70,15 +81,15 @@ train_merged["n_files"] = train_merged["files"].apply(list_len)
 test_merged["n_files"] = test_merged["files"].apply(list_len)
 
 # n_starsの分布を表示
-plt.hist(train_merged['n_stars'], bins=50, alpha=0.5, label='train', log=True)
-plt.hist(test_merged['n_stars'], bins=50, alpha=0.5, label='test', log=True)
-plt.show()
+# plt.hist(train_merged['n_stars'], bins=50, alpha=0.5, label='train', log=True)
+# plt.hist(test_merged['n_stars'], bins=50, alpha=0.5, label='test', log=True)
+# plt.show()
 
 # n_filesの分布を表示
-plt.hist(train_merged['n_files'], bins=50, alpha=0.5, label='train', log=True)
-plt.hist(test_merged['n_files'], bins=50, alpha=0.5, label='test', log=True)
-plt.legend()
-plt.show()
+# plt.hist(train_merged['n_files'], bins=50, alpha=0.5, label='train', log=True)
+# plt.hist(test_merged['n_files'], bins=50, alpha=0.5, label='test', log=True)
+# plt.legend()
+# plt.show()
 
 # "star_file_ratio" に n_files / n_stars を代入 (スターが多いほど小さく、ファイルが多いほど大きくなる)
 train_merged["star_file_ratio"] = train_merged["n_files"] / train_merged["n_stars"]
@@ -90,26 +101,34 @@ test_merged["file_par_commit"] = test_merged["n_files"] / test_merged["n_commits
 
 import seaborn as sns
 
-def show_dist(df, key):
-    sns.displot(df[key], kde=False, rug=False, log_scale=10).set(title=f"{key} log : all")
-    sns.displot(df[df["active"] == True][key], kde=False, rug=False, log_scale=10).set(title=f"{key} log : true")
-    sns.displot(df[df["active"] == False][key], kde=False, rug=False, log_scale=10).set(title=f"{key} log : false")
+
+def show_dist(df, key, log):
+    sns.displot(df[key], kde=False, rug=False, bins=500, log_scale=10 if log else None).set(title=f"{key} log : all")
+    sns.displot(df[df["active"] == True][key], kde=False, rug=False, bins=500, log_scale=10 if log else None).set(
+        title=f"{key} log : true")
+    sns.displot(df[df["active"] == False][key], kde=False, rug=False, bins=500, log_scale=10 if log else None).set(
+        title=f"{key} log : false")
 
 
 # fileの個数分布を表示
-show_dist(train_merged, "n_files")
+# show_dist(train_merged, "n_files")
 # starの個数分布を表示
-show_dist(train_merged, "n_stars")
+# show_dist(train_merged, "n_stars")
 
-show_dist(train_merged, "star_file_ratio")
+# show_dist(train_merged, "star_file_ratio")
 
-show_dist(train_merged, "n_commits")
+# show_dist(train_merged, "n_commits")
+
+# show_dist(train_merged, "file_par_commit")
+
+show_dist(train_merged, "n_commit_members", True)
 
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
-use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date"]
+use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
+            "n_commit_members"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
