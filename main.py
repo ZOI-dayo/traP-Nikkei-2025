@@ -120,11 +120,11 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
     params = {
         # 二値分類として解く
         'objective': 'binary',
-        # 評価指標として auc と accuracy を使う
-        'metric': ['auc', 'accuracy'],
+        # 評価指標として binary_logloss と binary_error を使う
+        'metric': ['binary_logloss', 'binary_error'],
     }
 
-    # 学習. auc が 100ステップ以上改善しないなら打ち切るように設定する
+    # 学習. binary_logloss が 100ステップ以上改善しないなら打ち切るように設定する
     model = lgb.train(params, lgb_train, valid_sets=[lgb_valid],
                       callbacks=[lgb.early_stopping(100, first_metric_only=True)])
 
