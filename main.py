@@ -197,12 +197,12 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
         # 二値分類として解く
         'objective': 'binary',
         # 評価指標として auc と accuracy を使う
-        'metric': ['auc', 'accuracy'],
+        'metric': ['binary_logloss', 'binary_error'],
+        "learning_rate": 0.01,
     }
 
     # 学習. auc が 100ステップ以上改善しないなら打ち切るように設定する
-    model = lgb.train(params, lgb_train, valid_sets=[lgb_valid],
-                      callbacks=[lgb.early_stopping(100, first_metric_only=True)])
+    model = lgb.train(params, lgb_train, valid_sets=[lgb_valid])
 
     return model
 
