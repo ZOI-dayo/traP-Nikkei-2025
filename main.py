@@ -69,6 +69,8 @@ print("コミット情報を読み取れました")
 print("issue情報を読み取っています...")
 issues = pd.read_csv(DATA_DIR + 'issues.csv')
 
+print("issue情報を加工しています...")
+
 issue_count_map = {}
 issue_open_count_map = {}
 for row in issues.itertuples():
@@ -79,11 +81,32 @@ issue_count_df = pd.DataFrame({"repo_id": issue_count_map.keys(), "n_issues": is
 issue_open_count_df = pd.DataFrame(
     {"repo_id": issue_open_count_map.keys(), "n_open_issues": issue_open_count_map.values()})
 
+print("issue情報を結合しています...")
+
 train_merged = train_merged.merge(issue_count_df, on='repo_id', how='left')
 test_merged = test_merged.merge(issue_count_df, on='repo_id', how='left')
 
 train_merged = train_merged.merge(issue_open_count_df, on='repo_id', how='left')
 test_merged = test_merged.merge(issue_open_count_df, on='repo_id', how='left')
+
+print("issue情報の取り込みが完了しました")
+
+print("PR情報を読み取っています...")
+issues = pd.read_csv(DATA_DIR + 'pulls.csv')
+
+print("PR情報を加工しています...")
+
+pull_count_map = {}
+for row in issues.itertuples():
+    pull_count_map[row.repo_id] = pull_count_map.get(row.repo_id, 0) + 1
+pull_count_df = pd.DataFrame({"repo_id": pull_count_map.keys(), "n_pulls": pull_count_map.values()})
+
+print("PR情報を結合しています...")
+
+train_merged = train_merged.merge(pull_count_df, on='repo_id', how='left')
+test_merged = test_merged.merge(pull_count_df, on='repo_id', how='left')
+
+print("PR情報の取り込みが完了しました")
 
 
 # 要素数を取得する関数
@@ -153,7 +176,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
-            "n_commit_members", "n_issues"]
+            "n_commit_members", "n_issues", "n_pulls"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
