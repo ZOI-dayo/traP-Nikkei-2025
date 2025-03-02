@@ -27,29 +27,34 @@ commits = pd.read_csv(DATA_DIR + 'commits_sampled_10.csv')
 
 print("コミット情報を集計します...")
 
+from datetime import datetime as dt
+
 repo_commit_cnt = {}
+repo_latest_commit_date = {}
 
 for row in commits.itertuples():
     # print(f"row.repo_names = {row.repo_names}")
+    # 日付として Author Date を利用
+    date = dt.strptime(row.author_date, '%Y-%m-%d %H:%M:%S').timestamp()
     for repo_name in eval(row.repo_names):
         # print(f"repo_name = {repo_name}")
         repo_commit_cnt[repo_name] = repo_commit_cnt.get(repo_name, 0) + 1
+        repo_latest_commit_date[repo_name] = max(repo_latest_commit_date.get(repo_name, 0), date)
+
 
 repo_commit_cnt_df = pd.DataFrame({"repo_url" : repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
+repo_latest_commit_date_df = pd.DataFrame({"repo_url" : repo_latest_commit_date.keys(), "last_commit_date": repo_latest_commit_date.values()})
 # print(repo_commit_cnt_df)
 
 print("コミット情報を結合します...")
 
-print(repo_commit_cnt_df)
-print(train_merged["repo_url"])
-
 train_merged = train_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
 test_merged = test_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
 
+train_merged = train_merged.merge(repo_latest_commit_date_df, on='repo_url', how='left')
+test_merged = test_merged.merge(repo_latest_commit_date_df, on='repo_url', how='left')
+
 print("コミット情報を読み取れました")
-
-print(train_merged["n_commits"])
-
 
 # 要素数を取得する関数
 def list_len(s: str):
@@ -104,7 +109,7 @@ show_dist(train_merged, "n_commits")
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
-use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit"]
+use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
