@@ -188,7 +188,7 @@ import lightgbm as lgb
 
 
 # 各分割をもらって、lightgbm のモデルを訓練して訓練した後のモデルを返す関数
-def train_fold_lgb(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame, valid_y: pd.Series) -> lgb.Booster:
+def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame, valid_y: pd.Series) -> lgb.Booster:
     # データセットを作成
     lgb_train = lgb.Dataset(train_X, train_y)
     lgb_valid = lgb.Dataset(valid_X, valid_y, reference=lgb_train)
@@ -207,16 +207,6 @@ def train_fold_lgb(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFr
     return model
 
 
-import xgboost as xgb
-
-
-def train_fold_xgb(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
-                   valid_y: pd.Series) -> xgb.XGBClassifier:
-    model = xgb.XGBClassifier(random_state=10, verbosity=1)
-    model.fit(train_X, train_y)
-    return model
-
-
 # 各分割で学習した結果をいれた
 models = []
 
@@ -230,10 +220,9 @@ for train_index, valid_index in kf.split(train_merged):
     valid_X = valid_data[use_cols]
     valid_y = valid_data[target_col]
 
-    lgb_model = train_fold_lgb(train_X, train_y, valid_X, valid_y)
-    models.append(lgb_model)
-    xgb_model = train_fold_xgb(train_X, train_y, valid_X, valid_y)
-    models.append(xgb_model)
+    model = train_fold(train_X, train_y, valid_X, valid_y)
+
+    models.append(model)
 
 # `oof_pred` に今回訓練したモデルたちによる予測結果を格納する
 
@@ -272,7 +261,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-# xgbでバグる
 def plot_importance(models: list):
     feature_importance = pd.DataFrame()
 
@@ -293,6 +281,15 @@ def plot_importance(models: list):
     plt.show()
 
 
+# 各データをどれだけ重視したか見る
+plot_importance(models)
+
+# 予測値の分布を表示
+plt.hist(oof_pred, bins=20)
+plt.show()
+
+from sklearn.metrics import confusion_matrix
+
 # 提出
 
 sample_sub = pd.read_csv(DATA_DIR + 'sample_submission.csv')
@@ -310,10 +307,3 @@ plt.hist(pred, bins=30)
 plt.show()
 
 sample_sub.to_csv("submission.csv", index=False)
-
-# 各データをどれだけ重視したか見る
-plot_importance(models)
-
-# 予測値の分布を表示
-plt.hist(oof_pred, bins=20)
-plt.show()
