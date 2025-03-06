@@ -341,7 +341,7 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
         'feature_fraction': 0.8,
         'bagging_freq': 1,
         'bagging_fraction': 0.8,
-        'num_leaves': 63,
+        'num_leaves': 31,
         'random_state': 0,
         'num_iterations': 1000,
     }
