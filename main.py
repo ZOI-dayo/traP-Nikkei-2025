@@ -1,29 +1,64 @@
 import pandas as pd
+import polars as pl
+import numpy as np
+import pyarrow
 import matplotlib.pyplot as plt
 from sklearn.model_selection import KFold
 
 # データ読み込み
 DATA_DIR = './tracon01/'
-train = pd.read_csv(DATA_DIR + 'train.csv')
-test = pd.read_csv(DATA_DIR + 'test.csv')
+train = pl.read_csv(DATA_DIR + 'train.csv')
+test = pl.read_csv(DATA_DIR + 'test.csv')
 
 print(train)
 print(test)
 
 # レポジトリ情報を読み取り
-repo = pd.read_csv(DATA_DIR + 'repo.csv')
+repo = pl.read_csv(DATA_DIR + 'repo.csv')
 
 # repo_idをもとにレポジトリ情報を結合
-train_merged = train.merge(repo, on='repo_id', how='left')
-test_merged = test.merge(repo, on='repo_id', how='left')
+train_merged = train.join(repo, on='repo_id', how='left')
+test_merged = test.join(repo, on='repo_id', how='left')
+
+
+def add_col(df, name, add):
+    return df.with_columns(add.alias(name))
+
+
+def get_readme_size(s):
+    l = eval(s)
+    for e in l:
+        if e["name"] == "README.md":
+            return e["size"]
+    return 0
+
+
+train_merged = add_col(train_merged, "readme_size", train_merged["files"].map_elements(get_readme_size))
+test_merged = add_col(test_merged, "readme_size", test_merged["files"].map_elements(get_readme_size))
+
+readme_size_cnt = {}
+
+for row in train_merged.iter_rows(named=True):
+    readme_size_cnt[row["readme_size"]] = readme_size_cnt.get(row["readme_size"], 0) + 1
+for row in test_merged.iter_rows(named=True):
+    readme_size_cnt[row["readme_size"]] = readme_size_cnt.get(row["readme_size"], 0) + 1
+
+def get_readme_count(readme_size):
+    return readme_size_cnt[readme_size]
+train_merged = add_col(train_merged, "readme_size_cnt", train_merged["readme_size"].map_elements(get_readme_count))
+test_merged = add_col(test_merged, "readme_size_cnt", test_merged["readme_size"].map_elements(get_readme_count))
+
+print(train_merged)
 
 # repo urlを追加
-train_merged["repo_url"] = train_merged["owner"] + "/" + train_merged["repo"]
-test_merged["repo_url"] = test_merged["owner"] + "/" + test_merged["repo"]
+train_merged = add_col(train_merged, "repo_url", train_merged["owner"] + "/" + train_merged["repo"])
+test_merged = add_col(test_merged, "repo_url", test_merged["owner"] + "/" + test_merged["repo"])
+# train_merged = train_merged.with_columns((train_merged["owner"] + "/" + train_merged["repo"]).alias("repo_url"))
+# test_merged = test_merged.with_columns((test_merged["owner"] + "/" + test_merged["repo"]).alias("repo_url"))
 
 # コミット情報を読み取り
 print("コミット情報を読み取っています...")
-commits = pd.read_csv(DATA_DIR + 'commits_sampled_10.csv')
+commits = pl.read_csv(DATA_DIR + 'commits_sampled_10.csv')
 
 print("コミット情報を集計します...")
 
@@ -33,78 +68,81 @@ repo_commit_cnt = {}
 repo_latest_commit_date = {}
 repo_commit_members = {}
 
-for row in commits.itertuples():
+for row in commits.iter_rows(named=True):
     # print(f"row.repo_names = {row.repo_names}")
     # 日付として Author Date を利用
-    date = dt.strptime(row.author_date, '%Y-%m-%d %H:%M:%S').timestamp()
-    for repo_name in eval(row.repo_names):
+    date = dt.strptime(row["author_date"], '%Y-%m-%d %H:%M:%S').timestamp()
+    for repo_name in eval(row["repo_names"]):
         # print(f"repo_name = {repo_name}")
         repo_commit_cnt[repo_name] = repo_commit_cnt.get(repo_name, 0) + 1
         repo_latest_commit_date[repo_name] = max(repo_latest_commit_date.get(repo_name, 0), date)
         if not repo_name in repo_commit_members:
             repo_commit_members[repo_name] = {}
-        repo_commit_members[repo_name][row.author_name] = repo_commit_members[repo_name].get(row.author_name, 0) + 1
+        repo_commit_members[repo_name][row["author_name"]] = repo_commit_members[repo_name].get(row["author_name"],
+                                                                                                0) + 1
 
-repo_commit_cnt_df = pd.DataFrame({"repo_url": repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
-repo_latest_commit_date_df = pd.DataFrame(
+repo_commit_cnt_df = pl.DataFrame({"repo_url": repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
+repo_latest_commit_date_df = pl.DataFrame(
     {"repo_url": repo_latest_commit_date.keys(), "last_commit_date": repo_latest_commit_date.values()})
-repo_commit_members_df = pd.DataFrame(
+repo_commit_members_df = pl.DataFrame(
     {"repo_url": repo_commit_members.keys(), "n_commit_members": [len(e) for e in repo_commit_members.values()]}
 )
 # print(repo_commit_cnt_df)
 
 print("コミット情報を結合します...")
 
-train_merged = train_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
-test_merged = test_merged.merge(repo_commit_cnt_df, on='repo_url', how='left')
+print(train_merged)
+print(repo_commit_cnt_df)
+train_merged = train_merged.join(repo_commit_cnt_df, on='repo_url', how='left')
+test_merged = test_merged.join(repo_commit_cnt_df, on='repo_url', how='left')
 
-train_merged = train_merged.merge(repo_latest_commit_date_df, on='repo_url', how='left')
-test_merged = test_merged.merge(repo_latest_commit_date_df, on='repo_url', how='left')
+train_merged = train_merged.join(repo_latest_commit_date_df, on='repo_url', how='left')
+test_merged = test_merged.join(repo_latest_commit_date_df, on='repo_url', how='left')
 
-train_merged = train_merged.merge(repo_commit_members_df, on='repo_url', how='left')
-test_merged = test_merged.merge(repo_commit_members_df, on='repo_url', how='left')
+train_merged = train_merged.join(repo_commit_members_df, on='repo_url', how='left')
+test_merged = test_merged.join(repo_commit_members_df, on='repo_url', how='left')
 
 print("コミット情報を読み取れました")
 
 print("issue情報を読み取っています...")
-issues = pd.read_csv(DATA_DIR + 'issues.csv')
+issues = pl.read_csv(DATA_DIR + 'issues.csv')
 
 print("issue情報を加工しています...")
 
 issue_count_map = {}
 issue_open_count_map = {}
-for row in issues.itertuples():
-    issue_count_map[row.repo_id] = issue_count_map.get(row.repo_id, 0) + 1
-    if row.state == 'open':
-        issue_open_count_map[row.repo_id] = issue_open_count_map.get(row.repo_id, 0) + 1
-issue_count_df = pd.DataFrame({"repo_id": issue_count_map.keys(), "n_issues": issue_count_map.values()})
-issue_open_count_df = pd.DataFrame(
+for row in issues.iter_rows(named=True):
+    issue_count_map[row["repo_id"]] = issue_count_map.get(row["repo_id"], 0) + 1
+    if row["state"] == 'open':
+        issue_open_count_map[row["repo_id"]] = issue_open_count_map.get(row["repo_id"], 0) + 1
+issue_count_df = pl.DataFrame({"repo_id": issue_count_map.keys(), "n_issues": issue_count_map.values()})
+issue_open_count_df = pl.DataFrame(
     {"repo_id": issue_open_count_map.keys(), "n_open_issues": issue_open_count_map.values()})
 
 print("issue情報を結合しています...")
 
-train_merged = train_merged.merge(issue_count_df, on='repo_id', how='left')
-test_merged = test_merged.merge(issue_count_df, on='repo_id', how='left')
+train_merged = train_merged.join(issue_count_df, on='repo_id', how='left')
+test_merged = test_merged.join(issue_count_df, on='repo_id', how='left')
 
-train_merged = train_merged.merge(issue_open_count_df, on='repo_id', how='left')
-test_merged = test_merged.merge(issue_open_count_df, on='repo_id', how='left')
+train_merged = train_merged.join(issue_open_count_df, on='repo_id', how='left')
+test_merged = test_merged.join(issue_open_count_df, on='repo_id', how='left')
 
 print("issue情報の取り込みが完了しました")
 
 print("PR情報を読み取っています...")
-issues = pd.read_csv(DATA_DIR + 'pulls.csv')
+issues = pl.read_csv(DATA_DIR + 'pulls.csv')
 
 print("PR情報を加工しています...")
 
 pull_count_map = {}
-for row in issues.itertuples():
-    pull_count_map[row.repo_id] = pull_count_map.get(row.repo_id, 0) + 1
-pull_count_df = pd.DataFrame({"repo_id": pull_count_map.keys(), "n_pulls": pull_count_map.values()})
+for row in issues.iter_rows(named=True):
+    pull_count_map[row["repo_id"]] = pull_count_map.get(row["repo_id"], 0) + 1
+pull_count_df = pl.DataFrame({"repo_id": pull_count_map.keys(), "n_pulls": pull_count_map.values()})
 
 print("PR情報を結合しています...")
 
-train_merged = train_merged.merge(pull_count_df, on='repo_id', how='left')
-test_merged = test_merged.merge(pull_count_df, on='repo_id', how='left')
+train_merged = train_merged.join(pull_count_df, on='repo_id', how='left')
+test_merged = test_merged.join(pull_count_df, on='repo_id', how='left')
 
 print("PR情報の取り込みが完了しました")
 
@@ -115,12 +153,16 @@ def list_len(s: str):
 
 
 # 各データの "n_stars" に "stars" の要素数をいれる
-train_merged["n_stars"] = train_merged["stars"].apply(list_len)
-test_merged["n_stars"] = test_merged["stars"].apply(list_len)
+train_merged = add_col(train_merged, "n_stars", train_merged["stars"].map_elements(list_len))
+test_merged = add_col(test_merged, "n_stars", test_merged["stars"].map_elements(list_len))
+# train_merged["n_stars"] = train_merged["stars"].apply(list_len)
+# test_merged["n_stars"] = test_merged["stars"].apply(list_len)
 
 # 各データの "n_files" に "files" の要素数をいれる
-train_merged["n_files"] = train_merged["files"].apply(list_len)
-test_merged["n_files"] = test_merged["files"].apply(list_len)
+train_merged = add_col(train_merged, "n_files", train_merged["files"].map_elements(list_len))
+test_merged = add_col(test_merged, "n_files", test_merged["files"].map_elements(list_len))
+# train_merged["n_files"] = train_merged["files"].apply(list_len)
+# test_merged["n_files"] = test_merged["files"].apply(list_len)
 
 # n_starsの分布を表示
 # plt.hist(train_merged['n_stars'], bins=50, alpha=0.5, label='train', log=True)
@@ -134,27 +176,35 @@ test_merged["n_files"] = test_merged["files"].apply(list_len)
 # plt.show()
 
 # "star_file_ratio" に n_files / n_stars を代入 (スターが多いほど小さく、ファイルが多いほど大きくなる)
-train_merged["star_file_ratio"] = train_merged["n_files"] / train_merged["n_stars"]
-test_merged["star_file_ratio"] = test_merged["n_files"] / test_merged["n_stars"]
+train_merged = add_col(train_merged, "star_file_ratio", train_merged["n_files"] / train_merged["n_stars"])
+test_merged = add_col(test_merged, "star_file_ratio", test_merged["n_files"] / test_merged["n_stars"])
+# train_merged["star_file_ratio"] = train_merged["n_files"] / train_merged["n_stars"]
+# test_merged["star_file_ratio"] = test_merged["n_files"] / test_merged["n_stars"]
 
 # "file_par_commit" に n_files / n_commits を代入 (commitあたりの平均ファイル数)
-train_merged["file_par_commit"] = train_merged["n_files"] / train_merged["n_commits"]
-test_merged["file_par_commit"] = test_merged["n_files"] / test_merged["n_commits"]
+train_merged = add_col(train_merged, "file_par_commit", train_merged["n_files"] / train_merged["n_commits"])
+test_merged = add_col(test_merged, "file_par_commit", test_merged["n_files"] / test_merged["n_commits"])
+# train_merged["file_par_commit"] = train_merged["n_files"] / train_merged["n_commits"]
+# test_merged["file_par_commit"] = test_merged["n_files"] / test_merged["n_commits"]
 
 import math
 
 # n_issues はlogを取ったほうが扱いやすい値なので操作
-train_merged["n_issues_log"] = train_merged["n_issues"].apply(math.log)
-test_merged["n_issues_log"] = test_merged["n_issues"].apply(math.log)
+train_merged = add_col(train_merged, "n_issues_log", train_merged["n_issues"].map_elements(math.log))
+test_merged = add_col(test_merged, "n_issues_log", test_merged["n_issues"].map_elements(math.log))
+# train_merged["n_issues_log"] = train_merged["n_issues"].apply(math.log)
+# test_merged["n_issues_log"] = test_merged["n_issues"].apply(math.log)
 
 import seaborn as sns
 
 
 def show_dist(df, key, log):
     sns.displot(df[key], kde=False, rug=False, bins=500, log_scale=10 if log else None).set(title=f"{key} log : all")
-    sns.displot(df[df["active"] == True][key], kde=False, rug=False, bins=500, log_scale=10 if log else None).set(
+    sns.displot(df.filter(pl.col("active") == True)[key], kde=False, rug=False, bins=500,
+                log_scale=10 if log else None).set(
         title=f"{key} log : true")
-    sns.displot(df[df["active"] == False][key], kde=False, rug=False, bins=500, log_scale=10 if log else None).set(
+    sns.displot(df.filter(pl.col("active") == False)[key], kde=False, rug=False, bins=500,
+                log_scale=10 if log else None).set(
         title=f"{key} log : false")
 
 
@@ -169,19 +219,19 @@ def show_dist(df, key, log):
 
 # show_dist(train_merged, "file_par_commit")
 
-show_dist(train_merged, "n_issues", True)
+show_dist(train_merged, "readme_size", False)
 
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
-            "n_commit_members", "n_issues", "n_pulls"]
+            "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
-    train_data = train_merged.iloc[train_index]
-    valid_data = train_merged.iloc[valid_index]
+    train_data = train_merged[train_index]
+    valid_data = train_merged[valid_index]
     print("学習データの数:", len(train_data), "検証データの数:", len(valid_data))
 
 import lightgbm as lgb
@@ -211,14 +261,14 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
 models = []
 
 for train_index, valid_index in kf.split(train_merged):
-    train_data = train_merged.iloc[train_index]
-    valid_data = train_merged.iloc[valid_index]
+    train_data = train_merged[train_index]
+    valid_data = train_merged[valid_index]
 
-    train_X = train_data[use_cols]
-    train_y = train_data[target_col]
+    train_X = train_data[use_cols].to_pandas()
+    train_y = train_data[target_col].to_pandas()
 
-    valid_X = valid_data[use_cols]
-    valid_y = valid_data[target_col]
+    valid_X = valid_data[use_cols].to_pandas()
+    valid_y = valid_data[target_col].to_pandas()
 
     model = train_fold(train_X, train_y, valid_X, valid_y)
 
@@ -226,13 +276,11 @@ for train_index, valid_index in kf.split(train_merged):
 
 # `oof_pred` に今回訓練したモデルたちによる予測結果を格納する
 
-import numpy as np
-
 oof_pred = np.zeros(len(train_merged))
 
 for i, (train_index, valid_index) in enumerate(kf.split(train_merged)):
     # バリデーションデータを取り出す
-    valid_data = train_merged.iloc[valid_index]
+    valid_data = train_merged[valid_index]
     valid_X = valid_data[use_cols]
 
     # 予測結果を出力
