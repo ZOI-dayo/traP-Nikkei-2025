@@ -154,6 +154,9 @@ test_merged = test_merged.join(issue_open_count_df, on='repo_id', how='left')
 train_merged = train_merged.join(repo_latest_closed_issue_df, on='repo_id', how='left')
 test_merged = test_merged.join(repo_latest_closed_issue_df, on='repo_id', how='left')
 
+train_merged = add_col(train_merged, "issue_open_rate", train_merged["n_open_issues"] / train_merged["n_issues"])
+test_merged = add_col(test_merged, "issue_open_rate", test_merged["n_open_issues"] / test_merged["n_issues"])
+
 print("issue情報の取り込みが完了しました")
 
 print("PR情報を読み取っています...")
@@ -254,7 +257,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
             "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
-            "file_size"]
+            "file_size", "issue_open_rate"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
