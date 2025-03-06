@@ -253,7 +253,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
-            "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
+            "n_commit_members", "n_issues", "n_pulls", "readme_size", "latest_closed_issue",
             "file_size"]
 target_col = "active"
 
