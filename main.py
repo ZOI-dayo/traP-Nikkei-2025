@@ -249,6 +249,8 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
         # 評価指標として auc と accuracy を使う
         'metric': ['binary_logloss', 'binary_error'],
         "learning_rate": 0.01,
+        'num_iterations': 1000,
+        'num_leaves': 128,
     }
 
     # 学習. auc が 100ステップ以上改善しないなら打ち切るように設定する
