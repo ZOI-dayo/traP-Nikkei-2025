@@ -33,8 +33,19 @@ def get_readme_size(s):
     return 0
 
 
+def get_file_size(s):
+    l = eval(s)
+    res = 0
+    for e in l:
+        res += e["size"]
+    return res
+
+
 train_merged = add_col(train_merged, "readme_size", train_merged["files"].map_elements(get_readme_size))
 test_merged = add_col(test_merged, "readme_size", test_merged["files"].map_elements(get_readme_size))
+
+train_merged = add_col(train_merged, "file_size", train_merged["files"].map_elements(get_file_size))
+test_merged = add_col(test_merged, "file_size", test_merged["files"].map_elements(get_file_size))
 
 readme_size_cnt = {}
 
@@ -123,7 +134,8 @@ for row in issues.iter_rows(named=True):
     else:
         if row["closed_at"] is not None:
             date = dt.fromisoformat(row["closed_at"]).timestamp()
-            repo_latest_closed_issue_map[row["repo_id"]] = max(repo_latest_closed_issue_map.get(row["repo_id"], 0), date)
+            repo_latest_closed_issue_map[row["repo_id"]] = max(repo_latest_closed_issue_map.get(row["repo_id"], 0),
+                                                               date)
 issue_count_df = pl.DataFrame({"repo_id": issue_count_map.keys(), "n_issues": issue_count_map.values()})
 issue_open_count_df = pl.DataFrame(
     {"repo_id": issue_open_count_map.keys(), "n_open_issues": issue_open_count_map.values()})
@@ -241,7 +253,8 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
-            "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue"]
+            "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
+            "file_size"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
