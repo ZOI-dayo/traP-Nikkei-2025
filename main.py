@@ -309,54 +309,57 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
 
     return model
 
+def learn():
+    # 各分割で学習した結果をいれた
+    models = []
 
-# 各分割で学習した結果をいれた
-models = []
+    for train_index, valid_index in kf.split(train_merged):
+        train_data = train_merged[train_index]
+        valid_data = train_merged[valid_index]
 
-for train_index, valid_index in kf.split(train_merged):
-    train_data = train_merged[train_index]
-    valid_data = train_merged[valid_index]
+        train_X = train_data[use_cols].to_pandas()
+        train_y = train_data[target_col].to_pandas()
 
-    train_X = train_data[use_cols].to_pandas()
-    train_y = train_data[target_col].to_pandas()
+        valid_X = valid_data[use_cols].to_pandas()
+        valid_y = valid_data[target_col].to_pandas()
 
-    valid_X = valid_data[use_cols].to_pandas()
-    valid_y = valid_data[target_col].to_pandas()
+        model = train_fold(train_X, train_y, valid_X, valid_y)
 
-    model = train_fold(train_X, train_y, valid_X, valid_y)
+        models.append(model)
 
-    models.append(model)
+    # `oof_pred` に今回訓練したモデルたちによる予測結果を格納する
 
-# `oof_pred` に今回訓練したモデルたちによる予測結果を格納する
+    oof_pred = np.zeros(len(train_merged))
 
-oof_pred = np.zeros(len(train_merged))
+    for i, (train_index, valid_index) in enumerate(kf.split(train_merged)):
+        # バリデーションデータを取り出す
+        valid_data = train_merged[valid_index]
+        valid_X = valid_data[use_cols]
 
-for i, (train_index, valid_index) in enumerate(kf.split(train_merged)):
-    # バリデーションデータを取り出す
-    valid_data = train_merged[valid_index]
-    valid_X = valid_data[use_cols]
+        # 予測結果を出力
+        oof_pred[valid_index] = models[i].predict(valid_X)
 
-    # 予測結果を出力
-    oof_pred[valid_index] = models[i].predict(valid_X)
+    from sklearn.metrics import roc_auc_score, roc_curve
 
-from sklearn.metrics import roc_auc_score, roc_curve
+    score = roc_auc_score(train_merged["active"], oof_pred)
 
-score = roc_auc_score(train_merged["active"], oof_pred)
+    print("score: ", score)
 
-print("score: ", score)
+    # ROC 曲線のプロット
+    fpr, tpr, thresholds = roc_curve(train_merged["active"], oof_pred)
 
-# ROC 曲線のプロット
-fpr, tpr, thresholds = roc_curve(train_merged["active"], oof_pred)
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {score}')
+    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # ランダムな分類器の基準線
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve")
+    plt.legend()
+    plt.grid()
+    plt.show()
+    return (score, models, oof_pred)
 
-plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {score}')
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # ランダムな分類器の基準線
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("ROC Curve")
-plt.legend()
-plt.grid()
-plt.show()
+score, models, oof_pred = learn()
 
 import matplotlib.pyplot as plt
 import seaborn as sns
