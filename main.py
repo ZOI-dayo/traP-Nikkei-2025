@@ -43,8 +43,11 @@ for row in train_merged.iter_rows(named=True):
 for row in test_merged.iter_rows(named=True):
     readme_size_cnt[row["readme_size"]] = readme_size_cnt.get(row["readme_size"], 0) + 1
 
+
 def get_readme_count(readme_size):
     return readme_size_cnt[readme_size]
+
+
 train_merged = add_col(train_merged, "readme_size_cnt", train_merged["readme_size"].map_elements(get_readme_count))
 test_merged = add_col(test_merged, "readme_size_cnt", test_merged["readme_size"].map_elements(get_readme_count))
 
