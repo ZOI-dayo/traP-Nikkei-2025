@@ -308,32 +308,40 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
         'objective': 'binary',
         # 評価指標として auc と accuracy を使う
         'metric': ['binary_logloss', 'binary_error'],
-        'learning_rate':
-        # trial.suggest_uniform('learning_rate', 0.01, 0.05),
-            0.036,
-        'n_estimators': 10000,
-        'importance_type': 'gain',
-        'num_leaves':
-        # trial.suggest_int('num_leaves', 10, 100),
-            90,
-        'min_data_in_leaf':
-        # trial.suggest_int('min_data_in_leaf', 5, 50),
-            30,
-        'min_sum_hessian_in_leaf':
-        # trial.suggest_int('min_sum_hessian_in_leaf', 5, 50),
-            35,
-        'lambda_l1': 0,
-        'lambda_l2': 0,
-        'bagging_fraction':
-        # trial.suggest_uniform('bagging_fraction', 0.1, 1.0),
-            0.3,
-        'bagging_freq':
-        # trial.suggest_int('bagging_freq', 0, 10),
-            5,
-        'feature_fraction':
-        # trial.suggest_uniform('feature_fraction', 0.1, 1.0),
-            0.98,
-        'random_seed': 42
+        # 'learning_rate':
+        # # trial.suggest_uniform('learning_rate', 0.01, 0.05),
+        #     0.036,
+        # 'n_estimators': 1000,
+        # 'importance_type': 'gain',
+        # 'num_leaves':
+        # # trial.suggest_int('num_leaves', 10, 100),
+        #     90,
+        # 'min_data_in_leaf':
+        # # trial.suggest_int('min_data_in_leaf', 5, 50),
+        #     30,
+        # 'min_sum_hessian_in_leaf':
+        # # trial.suggest_int('min_sum_hessian_in_leaf', 5, 50),
+        #     35,
+        # 'lambda_l1': 0,
+        # 'lambda_l2': 0,
+        # 'bagging_fraction':
+        # # trial.suggest_uniform('bagging_fraction', 0.1, 1.0),
+        #     0.3,
+        # 'bagging_freq':
+        # # trial.suggest_int('bagging_freq', 0, 10),
+        #     5,
+        # 'feature_fraction':
+        # # trial.suggest_uniform('feature_fraction', 0.1, 1.0),
+        #     0.98,
+        # 'random_seed': 42
+        # # --- --- ---
+        "learning_rate": 0.01,
+        'feature_fraction': 0.8,
+        'bagging_freq': 1,
+        'bagging_fraction': 0.8,
+        'num_leaves': 63,
+        'random_state': 0,
+        'num_iterations': 1000,
     }
 
     # 学習. auc が 100ステップ以上改善しないなら打ち切るように設定する
