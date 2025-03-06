@@ -81,6 +81,7 @@ from datetime import datetime as dt
 repo_commit_cnt = {}
 repo_latest_commit_date = {}
 repo_commit_members = {}
+repo_commit_message_sum = {}
 
 for row in commits.iter_rows(named=True):
     # print(f"row.repo_names = {row.repo_names}")
@@ -94,12 +95,17 @@ for row in commits.iter_rows(named=True):
             repo_commit_members[repo_name] = {}
         repo_commit_members[repo_name][row["author_name"]] = repo_commit_members[repo_name].get(row["author_name"],
                                                                                                 0) + 1
+        if row["message"] is not None:
+            repo_commit_message_sum[repo_name] = repo_commit_message_sum.get(repo_name, 0) + len(row["message"])
 
 repo_commit_cnt_df = pl.DataFrame({"repo_url": repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
 repo_latest_commit_date_df = pl.DataFrame(
     {"repo_url": repo_latest_commit_date.keys(), "last_commit_date": repo_latest_commit_date.values()})
 repo_commit_members_df = pl.DataFrame(
     {"repo_url": repo_commit_members.keys(), "n_commit_members": [len(e) for e in repo_commit_members.values()]}
+)
+repo_commit_message_sum_df = pl.DataFrame(
+    {"repo_url": repo_commit_message_sum.keys(), "len_commit_messages": repo_commit_message_sum.values()}
 )
 # print(repo_commit_cnt_df)
 
@@ -115,6 +121,9 @@ test_merged = test_merged.join(repo_latest_commit_date_df, on='repo_url', how='l
 
 train_merged = train_merged.join(repo_commit_members_df, on='repo_url', how='left')
 test_merged = test_merged.join(repo_commit_members_df, on='repo_url', how='left')
+
+train_merged = train_merged.join(repo_commit_message_sum_df, on='repo_url', how='left')
+test_merged = test_merged.join(repo_commit_message_sum_df, on='repo_url', how='left')
 
 print("コミット情報を読み取れました")
 
@@ -273,7 +282,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
             "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
-            "file_size", "issue_open_ratio", "pull_open_ratio"]
+            "file_size", "issue_open_ratio", "pull_open_ratio", "len_commit_messages"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
@@ -292,29 +301,38 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
     lgb_valid = lgb.Dataset(valid_X, valid_y, reference=lgb_train)
 
     # https://zenn.dev/robes/articles/d53ff6d665650f
+    # {'learning_rate': 0.036710796431638056, 'num_leaves': 74, 'min_data_in_leaf': 37, 'min_sum_hessian_in_leaf': 21, 'bagging_fraction': 0.1505235263266912, 'bagging_freq': 6, 'feature_fraction': 0.9944044553565908}
+    # {'learning_rate': 0.035829155667069366, 'num_leaves': 99, 'min_data_in_leaf': 27, 'min_sum_hessian_in_leaf': 47, 'bagging_fraction': 0.395652389722927, 'bagging_freq': 5, 'feature_fraction': 0.9581394359092842}
     params = {
         # 二値分類として解く
         'objective': 'binary',
         # 評価指標として auc と accuracy を使う
         'metric': ['binary_logloss', 'binary_error'],
         'learning_rate':
-            trial.suggest_uniform('learning_rate', 0.01, 0.08),
-        'n_estimators': 100000,
+        # trial.suggest_uniform('learning_rate', 0.01, 0.05),
+            0.036,
+        'n_estimators': 10000,
         'importance_type': 'gain',
         'num_leaves':
-            trial.suggest_int('num_leaves', 10, 100),
+        # trial.suggest_int('num_leaves', 10, 100),
+            90,
         'min_data_in_leaf':
-            trial.suggest_int('min_data_in_leaf', 5, 50),
+        # trial.suggest_int('min_data_in_leaf', 5, 50),
+            30,
         'min_sum_hessian_in_leaf':
-            trial.suggest_int('min_sum_hessian_in_leaf', 5, 50),
+        # trial.suggest_int('min_sum_hessian_in_leaf', 5, 50),
+            35,
         'lambda_l1': 0,
         'lambda_l2': 0,
         'bagging_fraction':
-            trial.suggest_uniform('bagging_fraction', 0.1, 1.0),
+        # trial.suggest_uniform('bagging_fraction', 0.1, 1.0),
+            0.3,
         'bagging_freq':
-            trial.suggest_int('bagging_freq', 0, 10),
+        # trial.suggest_int('bagging_freq', 0, 10),
+            5,
         'feature_fraction':
-            trial.suggest_uniform('feature_fraction', 0.1, 1.0),
+        # trial.suggest_uniform('feature_fraction', 0.1, 1.0),
+            0.98,
         'random_seed': 42
     }
 
@@ -324,7 +342,7 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
     return model
 
 
-def objective(trial):
+def learn(trial):
     # 各分割で学習した結果をいれた
     models = []
 
@@ -359,7 +377,7 @@ def objective(trial):
     score = roc_auc_score(train_merged["active"], oof_pred)
 
     print("score: ", score)
-    return score
+    # return score
 
     # ROC 曲線のプロット
     # fpr, tpr, thresholds = roc_curve(train_merged["active"], oof_pred)
@@ -373,19 +391,25 @@ def objective(trial):
     # plt.legend()
     # plt.grid()
     # plt.show()
-    # return (score, models, oof_pred)
+    return score, models, oof_pred
 
-import optuna
 
-study = optuna.create_study(direction='maximize')
-study.optimize(objective, n_trials=30)
+def objective(trial):
+    score, models, oof_pred = learn(trial)
+    return score
 
-print('Number of finished trials:', len(study.trials))
-print('Best trial:', study.best_trial.params)
 
-exit(0)
+# import optuna
+#
+# study = optuna.create_study(direction='maximize')
+# study.optimize(objective, n_trials=300)
+#
+# print('Number of finished trials:', len(study.trials))
+# print('Best trial:', study.best_trial.params)
+#
+# exit(0)
 
-# score, models, oof_pred = learn()
+score, models, oof_pred = learn(None)
 
 import matplotlib.pyplot as plt
 import seaborn as sns
