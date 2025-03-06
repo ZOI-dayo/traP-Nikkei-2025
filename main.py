@@ -285,23 +285,37 @@ import lightgbm as lgb
 
 
 # 各分割をもらって、lightgbm のモデルを訓練して訓練した後のモデルを返す関数
-def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame, valid_y: pd.Series) -> lgb.Booster:
+def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame, valid_y: pd.Series,
+               trial) -> lgb.Booster:
     # データセットを作成
     lgb_train = lgb.Dataset(train_X, train_y)
     lgb_valid = lgb.Dataset(valid_X, valid_y, reference=lgb_train)
 
+    # https://zenn.dev/robes/articles/d53ff6d665650f
     params = {
         # 二値分類として解く
         'objective': 'binary',
         # 評価指標として auc と accuracy を使う
         'metric': ['binary_logloss', 'binary_error'],
-        "learning_rate": 0.01,
-        'feature_fraction': 0.8,
-        'bagging_freq': 1,
-        'bagging_fraction': 0.8,
-        'num_leaves': 63,
-        'random_state': 0,
-        'num_iterations': 1000,
+        'learning_rate':
+            trial.suggest_uniform('learning_rate', 0.01, 0.08),
+        'n_estimators': 100000,
+        'importance_type': 'gain',
+        'num_leaves':
+            trial.suggest_int('num_leaves', 10, 100),
+        'min_data_in_leaf':
+            trial.suggest_int('min_data_in_leaf', 5, 50),
+        'min_sum_hessian_in_leaf':
+            trial.suggest_int('min_sum_hessian_in_leaf', 5, 50),
+        'lambda_l1': 0,
+        'lambda_l2': 0,
+        'bagging_fraction':
+            trial.suggest_uniform('bagging_fraction', 0.1, 1.0),
+        'bagging_freq':
+            trial.suggest_int('bagging_freq', 0, 10),
+        'feature_fraction':
+            trial.suggest_uniform('feature_fraction', 0.1, 1.0),
+        'random_seed': 42
     }
 
     # 学習. auc が 100ステップ以上改善しないなら打ち切るように設定する
@@ -309,7 +323,8 @@ def train_fold(train_X: pd.DataFrame, train_y: pd.Series, valid_X: pd.DataFrame,
 
     return model
 
-def learn():
+
+def objective(trial):
     # 各分割で学習した結果をいれた
     models = []
 
@@ -323,7 +338,7 @@ def learn():
         valid_X = valid_data[use_cols].to_pandas()
         valid_y = valid_data[target_col].to_pandas()
 
-        model = train_fold(train_X, train_y, valid_X, valid_y)
+        model = train_fold(train_X, train_y, valid_X, valid_y, trial)
 
         models.append(model)
 
@@ -344,22 +359,33 @@ def learn():
     score = roc_auc_score(train_merged["active"], oof_pred)
 
     print("score: ", score)
+    return score
 
     # ROC 曲線のプロット
-    fpr, tpr, thresholds = roc_curve(train_merged["active"], oof_pred)
+    # fpr, tpr, thresholds = roc_curve(train_merged["active"], oof_pred)
+    #
+    # plt.figure(figsize=(8, 6))
+    # plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {score}')
+    # plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # ランダムな分類器の基準線
+    # plt.xlabel("False Positive Rate")
+    # plt.ylabel("True Positive Rate")
+    # plt.title("ROC Curve")
+    # plt.legend()
+    # plt.grid()
+    # plt.show()
+    # return (score, models, oof_pred)
 
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {score}')
-    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # ランダムな分類器の基準線
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.legend()
-    plt.grid()
-    plt.show()
-    return (score, models, oof_pred)
+import optuna
 
-score, models, oof_pred = learn()
+study = optuna.create_study(direction='maximize')
+study.optimize(objective, n_trials=30)
+
+print('Number of finished trials:', len(study.trials))
+print('Best trial:', study.best_trial.params)
+
+exit(0)
+
+# score, models, oof_pred = learn()
 
 import matplotlib.pyplot as plt
 import seaborn as sns
