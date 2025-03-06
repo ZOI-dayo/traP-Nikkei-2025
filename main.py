@@ -72,7 +72,7 @@ test_merged = add_col(test_merged, "repo_url", test_merged["owner"] + "/" + test
 
 # コミット情報を読み取り
 print("コミット情報を読み取っています...")
-commits = pl.read_csv(DATA_DIR + 'commits_sampled_10.csv')
+commits = pl.read_csv(DATA_DIR + 'commits_full.csv')
 
 print("コミット情報を集計します...")
 
@@ -86,6 +86,8 @@ repo_commit_message_sum = {}
 for row in commits.iter_rows(named=True):
     # print(f"row.repo_names = {row.repo_names}")
     # 日付として Author Date を利用
+    if row["author_date"] is None:
+        continue
     date = dt.strptime(row["author_date"], '%Y-%m-%d %H:%M:%S').timestamp()
     for repo_name in eval(row["repo_names"]):
         # print(f"repo_name = {repo_name}")
