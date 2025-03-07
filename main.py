@@ -72,7 +72,7 @@ test_merged = add_col(test_merged, "repo_url", test_merged["owner"] + "/" + test
 
 # コミット情報を読み取り
 print("コミット情報を読み取っています...")
-commits = pl.read_csv(DATA_DIR + 'commits_full.csv')
+commits = pl.read_csv(DATA_DIR + 'commits_sampled_10.csv')
 
 print("コミット情報を集計します...")
 
