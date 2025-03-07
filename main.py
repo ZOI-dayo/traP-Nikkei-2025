@@ -186,6 +186,9 @@ test_merged = add_col(test_merged, "issue_open_ratio", test_merged["n_open_issue
 train_merged = train_merged.join(issue_message_len_df, on='repo_id', how='left')
 test_merged = test_merged.join(issue_message_len_df, on='repo_id', how='left')
 
+train_merged = add_col(train_merged, "ave_issue_body_len", train_merged["issue_message_len"] / train_merged["n_issues"]).fill_null(0).fill_nan(0)
+test_merged = add_col(test_merged, "ave_issue_body_len", test_merged["issue_message_len"] / test_merged["n_issues"]).fill_null(0).fill_nan(0)
+
 print("issue情報の取り込みが完了しました")
 
 print("PR情報を読み取っています...")
@@ -317,7 +320,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
             "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
             "file_size", "issue_open_ratio", "pull_open_ratio", "len_commit_messages", "star_par_commit",
-            "n_recent_commits", "issue_message_len"]
+            "n_recent_commits", "issue_message_len", "ave_issue_body_len"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
