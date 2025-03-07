@@ -244,6 +244,9 @@ test_merged = add_col(test_merged, "file_par_commit", test_merged["n_files"] / t
 # train_merged["file_par_commit"] = train_merged["n_files"] / train_merged["n_commits"]
 # test_merged["file_par_commit"] = test_merged["n_files"] / test_merged["n_commits"]
 
+train_merged = add_col(train_merged, "star_par_commit", train_merged["n_stars"] / train_merged["n_commits"])
+test_merged = add_col(test_merged, "star_par_commit", test_merged["n_stars"] / test_merged["n_commits"])
+
 import math
 
 # n_issues はlogを取ったほうが扱いやすい値なので操作
@@ -284,7 +287,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 # 学習対象の行
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
             "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
-            "file_size", "issue_open_ratio", "pull_open_ratio", "len_commit_messages"]
+            "file_size", "issue_open_ratio", "pull_open_ratio", "len_commit_messages", "star_par_commit"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
