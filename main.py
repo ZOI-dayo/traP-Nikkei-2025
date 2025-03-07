@@ -224,6 +224,17 @@ test_merged = add_col(test_merged, "n_stars", test_merged["stars"].map_elements(
 # train_merged["n_stars"] = train_merged["stars"].apply(list_len)
 # test_merged["n_stars"] = test_merged["stars"].apply(list_len)
 
+train_merged = add_col(train_merged, "n_recent_stars", train_merged["stars"].map_elements(
+    lambda x: len(list(
+        filter(
+            # 2022/1/1 = 1640995200
+            lambda y: dt.fromisoformat(y["created_at"]).timestamp() > 1640995200 - 31 * 24 * 60 * 60,
+            eval(x)
+        )
+    ))
+))
+test_merged = add_col(test_merged, "n_recent_stars", test_merged["stars"].map_elements(list_len))
+
 # 各データの "n_files" に "files" の要素数をいれる
 train_merged = add_col(train_merged, "n_files", train_merged["files"].map_elements(list_len))
 test_merged = add_col(test_merged, "n_files", test_merged["files"].map_elements(list_len))
@@ -297,7 +308,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
             "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
             "file_size", "issue_open_ratio", "pull_open_ratio", "len_commit_messages", "star_par_commit",
-            "n_recent_commits"]
+            "n_recent_commits", "n_recent_stars"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
