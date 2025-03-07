@@ -147,6 +147,7 @@ print("issue情報を加工しています...")
 issue_count_map = {}
 issue_open_count_map = {}
 repo_latest_closed_issue_map = {}
+issue_message_len_map = {}
 for row in issues.iter_rows(named=True):
     issue_count_map[row["repo_id"]] = issue_count_map.get(row["repo_id"], 0) + 1
     if row["state"] == 'open':
@@ -156,11 +157,16 @@ for row in issues.iter_rows(named=True):
             date = dt.fromisoformat(row["closed_at"]).timestamp()
             repo_latest_closed_issue_map[row["repo_id"]] = max(repo_latest_closed_issue_map.get(row["repo_id"], 0),
                                                                date)
+    if row["body"] is not None:
+        issue_message_len_map[row["repo_id"]] = issue_message_len_map.get(row["repo_id"], 0) + len(row["body"])
 issue_count_df = pl.DataFrame({"repo_id": issue_count_map.keys(), "n_issues": issue_count_map.values()})
 issue_open_count_df = pl.DataFrame(
     {"repo_id": issue_open_count_map.keys(), "n_open_issues": issue_open_count_map.values()})
 repo_latest_closed_issue_df = pl.DataFrame(
     {"repo_id": repo_latest_closed_issue_map.keys(), "latest_closed_issue": repo_latest_closed_issue_map.values()}
+)
+issue_message_len_df = pl.DataFrame(
+    {"repo_id": issue_message_len_map.keys(), "issue_message_len": issue_message_len_map.values()}
 )
 
 print("issue情報を結合しています...")
@@ -176,6 +182,9 @@ test_merged = test_merged.join(repo_latest_closed_issue_df, on='repo_id', how='l
 
 train_merged = add_col(train_merged, "issue_open_ratio", train_merged["n_open_issues"] / train_merged["n_issues"])
 test_merged = add_col(test_merged, "issue_open_ratio", test_merged["n_open_issues"] / test_merged["n_issues"])
+
+train_merged = train_merged.join(issue_message_len_df, on='repo_id', how='left')
+test_merged = test_merged.join(issue_message_len_df, on='repo_id', how='left')
 
 print("issue情報の取り込みが完了しました")
 
@@ -308,7 +317,7 @@ kf = KFold(n_splits=4, shuffle=True, random_state=34)
 use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_commit", "last_commit_date",
             "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
             "file_size", "issue_open_ratio", "pull_open_ratio", "len_commit_messages", "star_par_commit",
-            "n_recent_commits"]
+            "n_recent_commits", "issue_message_len"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train_merged):
