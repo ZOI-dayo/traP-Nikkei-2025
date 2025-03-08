@@ -94,6 +94,9 @@ test = add_col(test, "owner_cnt", test["owner"].map_elements(lambda x: owner_cnt
 train = add_col(train, "has_dockerfile", train["files"].map_elements(lambda s: "'Dockerfile'" in s))
 test = add_col(test, "has_dockerfile", test["files"].map_elements(lambda s: "'Dockerfile'" in s))
 
+train = add_col(train, "has_issue_template", train["files"].map_elements(lambda s: "'.github/ISSUE_TEMPLATE" in s))
+test = add_col(test, "has_issue_template", test["files"].map_elements(lambda s: "'.github/ISSUE_TEMPLATE" in s))
+
 # ---
 
 with open('cache/add_col.train.pkl', 'wb') as f:
