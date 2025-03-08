@@ -23,6 +23,8 @@ with open('cache/reshape_commit_data.repo_max_repocnt_df.pkl', 'rb') as f:
     repo_max_repocnt_df = pickle.load(f)
 with open('cache/reshape_commit_data.repo_author_timezonedelta_sum_df.pkl', 'rb') as f:
     repo_author_timezonedelta_sum_df = pickle.load(f)
+with open('cache/reshape_commit_data.repo_merge_sum_df.pkl', 'rb') as f:
+    repo_merge_sum_df = pickle.load(f)
 
 print(train)
 
@@ -50,6 +52,9 @@ test = test.join(repo_max_repocnt_df, on='repo_url', how='left')
 
 train = train.join(repo_author_timezonedelta_sum_df, on='repo_url', how='left')
 test = test.join(repo_author_timezonedelta_sum_df, on='repo_url', how='left')
+
+train = train.join(repo_merge_sum_df, on='repo_url', how='left')
+test = test.join(repo_merge_sum_df, on='repo_url', how='left')
 
 print("コミット情報を読み取れました")
 
