@@ -91,8 +91,8 @@ for owner in test["owner"]:
 train = add_col(train, "owner_cnt", train["owner"].map_elements(lambda x: owner_cnt[x]))
 test = add_col(test, "owner_cnt", test["owner"].map_elements(lambda x: owner_cnt[x]))
 
-train = add_col(train, "has_dockerfile", train["files"].map_elements(lambda s: "Dockerfile" in s))
-test = add_col(test, "has_dockerfile", test["files"].map_elements(lambda s: "Dockerfile" in s))
+train = add_col(train, "has_dockerfile", train["files"].map_elements(lambda s: "'Dockerfile'" in s))
+test = add_col(test, "has_dockerfile", test["files"].map_elements(lambda s: "'Dockerfile'" in s))
 
 # ---
 
