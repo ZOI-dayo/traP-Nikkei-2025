@@ -18,6 +18,7 @@ repo_commit_members = {}
 repo_commit_message_sum = {}
 repo_recent_commit_cnt = {}
 repo_max_repocnt = {}
+repo_author_timezonedelta_sum = {}
 
 for row in commits.iter_rows(named=True):
     # print(f"row.repo_names = {row.repo_names}")
@@ -39,6 +40,7 @@ for row in commits.iter_rows(named=True):
         if date > 1640995200 - 31 * 24 * 60 * 60:  # 2022/1/1 = 1640995200
             repo_recent_commit_cnt[repo_name] = repo_recent_commit_cnt.get(repo_name, 0) + 1
         repo_max_repocnt[repo_name] = max(repo_max_repocnt.get(repo_name, 1), len(repos))
+        # repo_author_timezonedelta_sum[repo_name] = repo_author_timezonedelta_sum.get(repo_name, 0) + row["timezonedelta"]
 
 repo_commit_cnt_df = pl.DataFrame({"repo_url": repo_commit_cnt.keys(), "n_commits": repo_commit_cnt.values()})
 repo_latest_commit_date_df = pl.DataFrame(
@@ -68,8 +70,11 @@ repo_recent_commit_cnt_df = pl.DataFrame(
     {"repo_url": repo_recent_commit_cnt.keys(), "n_recent_commits": repo_recent_commit_cnt.values()}
 )
 repo_max_repocnt_df = pl.DataFrame(
-    {"repo_url": repo_recent_commit_cnt.keys(), "n_max_repocnt": repo_recent_commit_cnt.values()}
+    {"repo_url": repo_max_repocnt.keys(), "n_max_repocnt": repo_max_repocnt.values()}
 ).fill_null(0)
+# repo_author_timezonedelta_sum_df = pl.DataFrame(
+#     {"repo_url": repo_author_timezonedelta_sum.keys(), "n_max_repocnt": repo_recent_commit_cnt.values()}
+# )
 
 # ---
 
