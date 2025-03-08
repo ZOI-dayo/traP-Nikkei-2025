@@ -1,3 +1,5 @@
+import numpy as np
+
 from lib import add_col
 
 import pickle
@@ -10,10 +12,11 @@ with open('cache/all_load_pull.train.pkl', 'rb') as f:
     train = pickle.load(f)
 with open('cache/all_load_pull.test.pkl', 'rb') as f:
     test = pickle.load(f)
-    
+
 # ---
 
 from datetime import datetime as dt
+
 
 # 要素数を取得する関数
 def list_len(s: str):
@@ -78,6 +81,15 @@ import math
 # test = add_col(test, "n_issues_log", test["n_issues"].map_elements(math.log))
 # train["n_issues_log"] = train["n_issues"].apply(math.log)
 # test["n_issues_log"] = test["n_issues"].apply(math.log)
+
+owner_cnt = {}
+for owner in train["owner"]:
+    owner_cnt[owner] = owner_cnt.get(owner, 0) + 1
+for owner in test["owner"]:
+    owner_cnt[owner] = owner_cnt.get(owner, 0) + 1
+
+train = add_col(train, "owner_cnt", train["owner"].map_elements(lambda x: owner_cnt[x]))
+test = add_col(test, "owner_cnt", test["owner"].map_elements(lambda x: owner_cnt[x]))
 
 # ---
 
