@@ -40,7 +40,7 @@ def show_dist(df, key, log):
 
 # show_dist(train, "file_par_commit")
 
-show_dist(train, "n_max_repocnt", False)
+show_dist(train, "author_timezonedelta_ave", False)
 
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
@@ -50,7 +50,7 @@ use_cols = ["n_stars", "n_files", "star_file_ratio", "n_commits", "file_par_comm
             "n_commit_members", "n_issues", "n_pulls", "readme_size", "readme_size_cnt", "latest_closed_issue",
             "file_size", "issue_open_ratio", "pull_open_ratio", "len_commit_messages", "star_par_commit",
             "n_recent_commits", "issue_message_len", "first_author_ratio", "first_or_second_author_ratio",
-            "n_max_repocnt"]
+            "author_timezonedelta_ave"]
 target_col = "active"
 
 for train_index, valid_index in kf.split(train):

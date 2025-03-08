@@ -69,6 +69,8 @@ test = add_col(test, "file_par_commit", test["n_files"] / test["n_commits"])
 train = add_col(train, "star_par_commit", train["n_stars"] / train["n_commits"])
 test = add_col(test, "star_par_commit", test["n_stars"] / test["n_commits"])
 
+train = add_col(train, "author_timezonedelta_ave", train["author_timezonedelta"] / train["n_commits"])
+test = add_col(test, "author_timezonedelta_ave", test["author_timezonedelta"] / test["n_commits"])
 import math
 
 # n_issues はlogを取ったほうが扱いやすい値なので操作
