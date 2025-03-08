@@ -69,7 +69,7 @@ repo_recent_commit_cnt_df = pl.DataFrame(
 )
 repo_max_repocnt_df = pl.DataFrame(
     {"repo_url": repo_recent_commit_cnt.keys(), "n_max_repocnt": repo_recent_commit_cnt.values()}
-)
+).fill_null(0)
 
 # ---
 

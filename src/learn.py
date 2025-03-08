@@ -40,7 +40,7 @@ def show_dist(df, key, log):
 
 # show_dist(train, "file_par_commit")
 
-show_dist(train, "latest_closed_issue", False)
+show_dist(train, "n_max_repocnt", False)
 
 # KFoldでデータを分割
 kf = KFold(n_splits=4, shuffle=True, random_state=34)
