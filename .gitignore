@@ -20,3 +20,6 @@ pip-selfcheck.json
 tracon01.zip
 tracon01/*
 !tracon01/.gitkeep
+
+cache/*
+!cache/.gitkeep
